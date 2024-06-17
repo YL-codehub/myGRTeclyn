@@ -39,3 +39,4 @@ Doxygen/html
 log*
 *.patch
 *.log
+machine.file*

@@ -8,8 +8,8 @@ verbosity = 0
 
 # location / naming of output files
 output_path = . # Main path for all files. Must exist!
-amr.check_file = /home/dc-kwan1/rds/rds-dirac-dp002/dc-kwan1/GRTeclyn/ScalarField/chk_
-amr.plot_file = /home/dc-kwan1/rds/rds-dirac-dp002/dc-kwan1/GRTeclyn/ScalarField/plt_
+amr.check_file = ./output/chk_
+amr.plot_file = ./output/plt_
 # restart_file = ScalarField_000000.3d.hdf5
 
 # HDF5files are written every dt = L/N*dt_multiplier*checkpoint_interval
@@ -19,8 +19,8 @@ checkpoint_interval = 500
 plot_interval = 1
 amr.plot_int = 1
 amr.check_int = -1
-num_plot_vars = 2
-plot_vars = chi phi
+num_plot_vars = 4
+plot_vars = phi Pi K chi 
 
 # subpaths - specific directories for hdf5, pout, extraction data
 # (these are created at runtime)

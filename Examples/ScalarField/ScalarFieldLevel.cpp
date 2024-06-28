@@ -14,7 +14,7 @@
 
 // // For constraints calculation
 #include "Constraints.hpp"
-#include "MatterWeyl4.hpp"
+#include "EMTensor.hpp"
 #include "NewMatterConstraints.hpp"
 
 // For tagging cells
@@ -22,7 +22,7 @@
 #include "FixedGridsTaggingCriterion.hpp"
 
 // // Problem specific includes
-#include "InitialScalarData.hpp"
+#include "myInitialScalarData.hpp"
 #include "Potential.hpp"
 #include "ScalarField.hpp"
 
@@ -40,27 +40,43 @@ void ScalarFieldLevel::variableSetUp()
     const int nghost = simParams().num_ghosts;
 
     // // Add the constraints to the derive list
+    static inline const amrex::Vector<std::string> var_names = {"Ham","Mom", "Ham_abs_terms", "Mom_abs_terms"};
     derive_lst.add(
         "constraints", amrex::IndexType::TheCellType(),
-        static_cast<int>(Constraints::var_names.size()), Constraints::var_names,
+        static_cast<int>(var_names.size()), var_names, //static_cast<int>(Constraints::var_names_norm.size()),Constraints::var_names,
         amrex::DeriveFuncFab(), // null function because we won't use
                                 // it.
         [=](const amrex::Box &box) { return amrex::grow(box, nghost); },
         &amrex::cell_quartic_interp);
 
-    // We only need the non-gauge CCZ4 variables to calculate the constraints
-    derive_lst.addComponent("constraints", desc_lst, State_Type, 0, c_lapse);
+    // Determine the number of components in State_Type
+    const int num_state_components = desc_lst[State_Type].nComp();
 
-    // Add Weyl4 to the derive list
+    // We only need the non-gauge CCZ4 variables to calculate the constraints
+    // derive_lst.addComponent("constraints", desc_lst, State_Type, 0, c_lapse);
+    derive_lst.addComponent("constraints", desc_lst, State_Type, 0, num_state_components);
+    
+    int my_n = static_cast<int>(1);  
     derive_lst.add(
-        "Weyl4", amrex::IndexType::TheCellType(),
-        static_cast<int>(Weyl4::var_names.size()), Weyl4::var_names,
-        amrex::DeriveFuncFab(), // null function because we won't use it
+        "density", amrex::IndexType::TheCellType(),
+        my_n, {"rho"},
+        amrex::DeriveFuncFab(), // null function because we won't use
+                                // it.
         [=](const amrex::Box &box) { return amrex::grow(box, nghost); },
         &amrex::cell_quartic_interp);
+    
+    derive_lst.addComponent("density", desc_lst, State_Type, 0, num_state_components);
 
-    // We need all of the CCZ4 variables to calculate Weyl4 (except B)
-    derive_lst.addComponent("Weyl4", desc_lst, State_Type, 0, c_B1);
+    // // Add Weyl4 to the derive list
+    // derive_lst.add(
+    //     "Weyl4", amrex::IndexType::TheCellType(),
+    //     static_cast<int>(Weyl4::var_names.size()), Weyl4::var_names,
+    //     amrex::DeriveFuncFab(), // null function because we won't use it
+    //     [=](const amrex::Box &box) { return amrex::grow(box, nghost); },
+    //     &amrex::cell_quartic_interp);
+
+    // // We need all of the CCZ4 variables to calculate Weyl4 (except B)
+    // derive_lst.addComponent("Weyl4", desc_lst, State_Type, 0, c_B1);
 }
 
 // Things to do at each advance step, after the RK4 is calculated
@@ -78,7 +94,7 @@ void ScalarFieldLevel::specificAdvance()
                            amrex::CellData<amrex::Real> cell =
                                arrs[box_no].cellData(i, j, k);
                            TraceARemoval()(cell);
-                           PositiveChiAndAlpha()(cell);
+                           PositiveChiAndAlpha(simParams().initial_params.min_chi, simParams().initial_params.min_lapse)(cell);
                        });
 
     // Check for nan's
@@ -100,7 +116,8 @@ void ScalarFieldLevel::initData()
                        << std::endl;
 
     const auto dx = geom.CellSizeArray();
-    InitialScalarData gaussian_pulse(simParams().initial_params, dx[0]);
+    // InitialScalarData gaussian_pulse(simParams().initial_params, dx[0]);
+    InitialScalarData my_initial_data(simParams().initial_params, dx[0]);
 
     amrex::MultiFab &state  = get_new_data(State_Type);
     auto const &state_array = state.arrays();
@@ -116,7 +133,7 @@ void ScalarFieldLevel::initData()
                 cell[n] = 0.;
             }
 
-            gaussian_pulse.compute(i, j, k, state_array[box_ind]);
+            my_initial_data.compute(i, j, k, state_array[box_ind]);
         });
 
     if (simParams().nan_check)
@@ -352,11 +369,18 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
         if (name == "constraints")
         {
             const auto &out_arrays = multifab.arrays();
-            int iham               = dcomp;
-            Interval imom = Interval(dcomp + 1, dcomp + AMREX_SPACEDIM);
+            // Interval imom = Interval(dcomp + 1, dcomp + AMREX_SPACEDIM); // This neds to be modified to same begin and end to get sqrt Mom^2
+            // MatterConstraints<ScalarFieldWithPotential> constraints(
+                // scalar_field, Geom().CellSize(0), simParams().G_Newton, iham,
+                // imom); // This needs to also have an input of iham_abs and imom_abs
+            int iham = dcomp;
+            Interval imom = Interval(dcomp + 1, dcomp + 1);
+            int iham_abs = dcomp+2;
+            Interval imom_abs = Interval(dcomp + 3, dcomp + 3);
+
             MatterConstraints<ScalarFieldWithPotential> constraints(
                 scalar_field, Geom().CellSize(0), simParams().G_Newton, iham,
-                imom);
+                imom, iham_abs, imom_abs);
             amrex::ParallelFor(
                 multifab, multifab.nGrowVect(),
                 [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
@@ -364,22 +388,36 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
                                         src_arrays[box_no]);
                 });
         }
-        else if (name == "Weyl4")
+        else if (name == "density")
         {
             const auto &out_arrays = multifab.arrays();
 
-            MatterWeyl4<ScalarFieldWithPotential> weyl4(
-                scalar_field, simParams().extraction_params.center,
-                Geom().CellSize(0), dcomp, simParams().formulation,
-                simParams().G_Newton);
+            EMTensor<ScalarFieldWithPotential> emtensor(
+                scalar_field, Geom().CellSize(0), dcomp);
 
             amrex::ParallelFor(
                 multifab, multifab.nGrowVect(),
                 [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
-                    weyl4.compute(i, j, k, out_arrays[box_no],
+                    emtensor.compute(i, j, k, out_arrays[box_no],
                                   src_arrays[box_no]);
                 });
         }
+        // else if (name == "Weyl4")
+        // {
+        //     const auto &out_arrays = multifab.arrays();
+
+        //     MatterWeyl4<ScalarFieldWithPotential> weyl4(
+        //         scalar_field, simParams().extraction_params.center,
+        //         Geom().CellSize(0), dcomp, simParams().formulation,
+        //         simParams().G_Newton);
+
+        //     amrex::ParallelFor(
+        //         multifab, multifab.nGrowVect(),
+        //         [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
+        //             weyl4.compute(i, j, k, out_arrays[box_no],
+        //                           src_arrays[box_no]);
+        //         });
+        // }
         else
         {
             amrex::Abort("Unknown derived variable");

@@ -61,7 +61,8 @@ application="~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/main3d.
 
 #! Run options for the application:
 # options="params.txt"
-options="~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/params.txt"
+# options="~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/params.txt"
+options="dparams.txt"
 
 #! Work directory (i.e. where the job will run):
 workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
@@ -125,14 +126,15 @@ echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks
 
 
 # # Cleaning former hdf5 and pout files
-rm -f ../output/*
-# rm -r /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR/pictures/*
+rm -r ~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/jobs/output/*
+rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures/*
+rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
 
-# # # Python Noise generator
+# # # # Python Noise generator
 # cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
 # echo -e "Changed directory to `pwd`.\n"
 # source stoiic_env/bin/activate
-# python3 main.py
+# python3 main.py --cfg config_default_GRT
 # cp ./output/dparams.txt $workdir
 # # str1="/post_processing/input/"
 # # newdir="$workdir$str1"
@@ -141,14 +143,14 @@ rm -f ../output/*
 # cp -r ./output/. $newdir
 # deactivate
 
-# # GRChombo
+# GRTeclyn
 cd $workdir
 echo -e "Changed directory to `pwd`.\n"
 echo -e "\nExecuting command:\n==================\n$CMD\n"
 eval $CMD 
 
 # # Now doing post-processing
-# cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR
-# source YTenv/bin/activate
-# echo -e "Changed directory to `pwd`.\n"
-# srun python3 main.py
+cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR
+source YTenv/bin/activate
+echo -e "Changed directory to `pwd`.\n"
+srun python3 main.py --input GRT

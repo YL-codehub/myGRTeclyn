@@ -178,7 +178,7 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
                            amrex::CellData<amrex::Real> cell =
                                soln_arrs[box_no].cellData(i, j, k);
                            TraceARemoval()(cell);
-                           PositiveChiAndAlpha()(cell);
+                           PositiveChiAndAlpha(simParams().initial_params.min_chi, simParams().initial_params.min_lapse)(cell);
                        });
 
     // Calculate MatterCCZ4 right hand side with matter_t = ScalarField

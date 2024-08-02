@@ -26,7 +26,7 @@ template <class data_t>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
 MultiSourceCCZ4RHS<matter_t, gauge_t, deriv_t>::compute(
     int i, int j, int k, const amrex::Array4<data_t> &rhs,
-    const amrex::Array4<data_t const> &state) const
+    const amrex::Array4<data_t const> &state, std::default_random_engine &random_generator) const
 {
     // copy data from chombo gridpoint into local variables
     const auto matter_vars = load_vars<Vars>(state.cellData(i, j, k));
@@ -43,7 +43,7 @@ MultiSourceCCZ4RHS<matter_t, gauge_t, deriv_t>::compute(
     add_geom_sources_rhs(matter_rhs, matter_vars, d1);
 
     // add evolution of matter fields themselves
-    my_matter.add_sources_rhs(matter_rhs, matter_vars, d1, d2, advec);
+    my_matter.add_sources_rhs(matter_rhs, matter_vars, d1, d2, advec, random_generator);
 
     // Add dissipation to all terms
     this->m_deriv.add_dissipation(i, j, k, matter_rhs, state, this->m_sigma);

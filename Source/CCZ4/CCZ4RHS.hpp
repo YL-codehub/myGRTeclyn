@@ -14,6 +14,7 @@
 #include "Tensor.hpp"
 #include "TensorAlgebra.hpp"
 #include "simd.hpp"
+#include <random>
 
 #include "StateVariables.hpp" //This files needs NUM_VARS - total number of components
 
@@ -95,7 +96,8 @@ class CCZ4RHS
     template <class data_t>
     AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
     compute(int i, int j, int k, const amrex::Array4<data_t> &rhs,
-            const amrex::Array4<data_t const> &state) const;
+            const amrex::Array4<data_t const> &state,
+            std::default_random_engine &random_generator) const;
 
   protected:
     /// Calculates the rhs for CCZ4

@@ -44,7 +44,8 @@ template <class gauge_t, class deriv_t>
 template <class data_t>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE void CCZ4RHS<gauge_t, deriv_t>::compute(
     int i, int j, int k, const amrex::Array4<data_t> &rhs,
-    const amrex::Array4<data_t const> &state) const
+    const amrex::Array4<data_t const> &state,
+    std::default_random_engine &random_generator) const
 {
     const auto vars = load_vars<Vars>(state.cellData(i, j, k));
     const auto d1   = m_deriv.template diff1<Vars>(i, j, k, state);

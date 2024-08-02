@@ -12,6 +12,7 @@
 #include "DefaultPotential.hpp"
 #include "Potential.hpp"
 #include "SourceFields.hpp"
+#include <random> // random numbers generation.
 
 //!  A class for the evolution of a scalar field, minimally coupled to gravity
 /*!
@@ -61,6 +62,12 @@ class ScalarFieldLevel : public GRAMRLevel
 
     void derive(const std::string &name, amrex::Real time,
                 amrex::MultiFab &multifab, int dcomp) override;
+  
+  private:
+    std::default_random_engine random_engine;
+    unsigned int seed;
+    // Method to initialize the random seed
+    void initializeRandomEngine();
 };
 
 #endif /* SCALARFIELDLEVEL_HPP_ */

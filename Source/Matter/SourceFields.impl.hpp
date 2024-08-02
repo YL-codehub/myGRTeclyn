@@ -87,7 +87,8 @@ SourceFields<potential_t>::add_sources_rhs(
     rhs_vars_t<data_t> &total_rhs, const vars_t<data_t> &vars,
     const vars_t<Tensor<1, data_t>> &d1,
     const diff2_vars_t<Tensor<2, data_t>> &d2,
-    const vars_t<data_t> &advec) const
+    const vars_t<data_t> &advec,
+    std::default_random_engine &random_generator) const
 {
     // first get the non potential part of the rhs
     // this may seem a bit long winded, but it makes the function
@@ -108,10 +109,13 @@ SourceFields<potential_t>::add_sources_rhs(
     total_rhs.Rlin  = 0.0;
 
     // Let's see as a test what happens if:
-    std::default_random_engine generator;
+    // std::default_random_engine generator;
     std::normal_distribution<double> distribution(0.0,1.0);
     // total_rhs.phi += vars.Rlin*distribution(generator);
-    total_rhs.phi += pow(-vars.K/3,1.5)/(2*PI)*distribution(generator);
+    // double temp=distribution(random_generator);
+    // amrex::Print() << "Random draw : " << temp << std::endl;
+    // total_rhs.phi += pow(-vars.K/3,1.5)/(2*PI)*temp;
+    total_rhs.phi += pow(-vars.K/3,1.5)/(2*PI)*distribution(random_generator);
 
 }
 

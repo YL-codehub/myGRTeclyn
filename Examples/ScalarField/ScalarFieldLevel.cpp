@@ -143,6 +143,7 @@ void ScalarFieldLevel::initData()
             amrex::Abort("NaN in initData");
         }
     }
+    initializeRandomEngine();
 }
 
 // Things to do in RHS update, at each RK4 step
@@ -152,9 +153,9 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
 {
     BL_PROFILE("ScalarFieldLevel::specificEvalRHS()");
 
-    std::string plot_file_root =
-        "/home/dc-kwan1/rds/rds-dirac-dp002/dc-kwan1/GRTeclyn/"
-        "ScalarField/test_file";
+    // std::string plot_file_root =
+    //     "/home/dc-kwan1/rds/rds-dirac-dp002/dc-kwan1/GRTeclyn/"
+    //     "ScalarField/test_file";
 
     amrex::Vector<std::string> var_names;
     for (int i = 0; i < NUM_VARS; i++)
@@ -197,7 +198,7 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
             a_rhs,
             [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) {
                 matter_ccz4_rhs.compute(i, j, k, rhs_arrs[box_no],
-                                        soln_c_arrs[box_no]);
+                                        soln_c_arrs[box_no], random_engine);
             });
     }
     else if (simParams().max_spatial_derivative_order == 6)
@@ -212,7 +213,7 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
         {
             amrex::CellData<amrex::Real const> state = soln_c_arrs[box_no].cellData(i,j,k);
             amrex::CellData<amrex::Real> rhs = rhs_arrs[box_no].cellData(i,j,k);
-            matter_ccz4_rhs.compute(i,j,k,rhs_arrs[box_no], soln_c_arrs[box_no]);
+            matter_ccz4_rhs.compute(i,j,k,rhs_arrs[box_no], soln_c_arrs[box_no], random_engine);
         });
 #endif
     }
@@ -428,4 +429,13 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
         amrex::Abort("Unknown derived variable");
     }
     amrex::Gpu::streamSynchronize();
+}
+
+void ScalarFieldLevel::initializeRandomEngine()
+{
+    std::random_device rd;
+    seed = rd(); // Generate a random seed
+    random_engine.seed(seed); // Initialize the random engine with the seed
+
+    amrex::Print() << "Initialized random engine with seed: " << seed << std::endl;
 }

@@ -18,6 +18,7 @@ enum
     // the last CCZ4 var enum
     c_phi = NUM_CCZ4_VARS, // matter field added
     c_Pi,                  //(minus) conjugate momentum
+    c_Rlin,
 
     NUM_VARS
 };
@@ -25,7 +26,7 @@ enum
 namespace StateVariables
 {
 static const std::array<std::string, NUM_VARS - NUM_CCZ4_VARS>
-    additional_names = {"phi", "Pi"};
+    additional_names = {"phi", "Pi", "Rlin"};
 
 static const std::array<std::string, NUM_VARS> names =
     ArrayTools::concatenate(CCZ4Variables::names, additional_names);

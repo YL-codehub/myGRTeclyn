@@ -50,13 +50,13 @@ class SimulationParameters : public SimulationParametersBase
         pp.load("potential_type", potential_params.potential_type, 1);
 
         // Pertuabtion initial data
-        pp.load("dx_input",initial_params.dx_input,1.); //spacing input grid
-        pp.load("n",initial_params.n,1); //size per dimension
-        int ntot=pow(initial_params.n,3);
-        pp.load("delta_phi",initial_params.delta_phi, ntot); 
-        pp.load("delta_Pi",initial_params.delta_Pi,  ntot); 
-        pp.load("delta_X",initial_params.delta_X,  ntot);
-        pp.load("delta_K",initial_params.delta_K,  ntot); 
+        // pp.load("dx_input",initial_params.dx_input,1.); //spacing input grid
+        // pp.load("n",initial_params.n,1); //size per dimension
+        // int ntot=pow(initial_params.n,3);
+        // pp.load("delta_phi",initial_params.delta_phi, ntot); 
+        // pp.load("delta_Pi",initial_params.delta_Pi,  ntot); 
+        // pp.load("delta_X",initial_params.delta_X,  ntot);
+        // pp.load("delta_K",initial_params.delta_K,  ntot); 
     }
 
     void check_params()

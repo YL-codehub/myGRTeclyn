@@ -11,7 +11,7 @@
 // Problem specific includes
 #include "DefaultPotential.hpp"
 #include "Potential.hpp"
-#include "ScalarField.hpp"
+#include "SourceFields.hpp"
 
 //!  A class for the evolution of a scalar field, minimally coupled to gravity
 /*!
@@ -34,9 +34,9 @@ class ScalarFieldLevel : public GRAMRLevel
     static void variableSetUp();
 
     // Typedef for scalar field
-    typedef ScalarField<Potential> ScalarFieldWithPotential;
+    typedef SourceFields<Potential> SourceFieldsWithPotential;
 
-    using DefaultScalarField = ScalarField<DefaultPotential>;
+    using DefaultScalarField = SourceFields<DefaultPotential>;
 
     //! Things to do at the end of the advance step, after RK4 calculation
     void specificAdvance() override;

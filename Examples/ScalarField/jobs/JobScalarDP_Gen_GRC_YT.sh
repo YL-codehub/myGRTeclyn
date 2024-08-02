@@ -127,8 +127,8 @@ echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks
 
 # # Cleaning former hdf5 and pout files
 rm -r ~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/jobs/output/*
-rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures/*
-rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
+# rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures/*
+# rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
 
 # # # # Python Noise generator
 # cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
@@ -149,7 +149,7 @@ echo -e "Changed directory to `pwd`.\n"
 echo -e "\nExecuting command:\n==================\n$CMD\n"
 eval $CMD 
 
-# # Now doing post-processing
+# # # Now doing post-processing
 cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR
 source YTenv/bin/activate
 echo -e "Changed directory to `pwd`.\n"

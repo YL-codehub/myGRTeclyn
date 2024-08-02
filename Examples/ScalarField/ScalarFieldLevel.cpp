@@ -10,7 +10,7 @@
 // //#include "SixthOrderDerivatives.hpp"
 
 // // For RHS update
-#include "MatterCCZ4RHS.hpp"
+#include "MultiSourceCCZ4RHS.hpp"
 
 // // For constraints calculation
 #include "Constraints.hpp"
@@ -24,7 +24,7 @@
 // // Problem specific includes
 #include "myInitialScalarData.hpp"
 #include "Potential.hpp"
-#include "ScalarField.hpp"
+#include "SourceFields.hpp"
 
 #ifdef AMREX_USE_HDF5
 #include <AMReX_PlotFileUtilHDF5.H>
@@ -183,14 +183,14 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
 
     // Calculate MatterCCZ4 right hand side with matter_t = ScalarField
     Potential potential(simParams().potential_params);
-    ScalarFieldWithPotential scalar_field(potential);
+    SourceFieldsWithPotential source_fields(potential);
 
     // Calculate CCZ4 right hand side
     if (simParams().max_spatial_derivative_order == 4)
     {
-        MatterCCZ4RHS<ScalarFieldWithPotential, MovingPunctureGauge,
+        MultiSourceCCZ4RHS<SourceFieldsWithPotential, MovingPunctureGauge,
                       FourthOrderDerivatives>
-            matter_ccz4_rhs(scalar_field, simParams().ccz4_params,
+            matter_ccz4_rhs(source_fields, simParams().ccz4_params,
                             Geom().CellSize(0), simParams().sigma,
                             simParams().formulation, simParams().G_Newton);
         amrex::ParallelFor(
@@ -204,8 +204,8 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
     {
         amrex::Abort("xxxxx max_spatial_derivative_order == 6 todo");
 #if 0
-        MatterCCZ4RHS<ScalarFieldWithPotential, MovingPunctureGauge, SixthOrderDerivatives>
-	  matter_ccz4_rhs(scalar_field, simParams().ccz4_params, Geom().CellSize(0), simParams().sigma,
+        MultiSourceCCZ4RHS<SourceFieldsWithPotential, MovingPunctureGauge, SixthOrderDerivatives>
+	  matter_ccz4_rhs(source_fields, simParams().ccz4_params, Geom().CellSize(0), simParams().sigma,
 			  simParams().formulation, simParams().G_Newton);
         amrex::ParallelFor(a_rhs,
         [=] AMREX_GPU_DEVICE (int box_no, int i, int j, int k)
@@ -364,22 +364,22 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
         const auto &src_arrays = src_mf.const_arrays();
 
         Potential potential(simParams().potential_params);
-        ScalarFieldWithPotential scalar_field(potential);
+        SourceFieldsWithPotential source_fields(potential);
 
         if (name == "constraints")
         {
             const auto &out_arrays = multifab.arrays();
             // Interval imom = Interval(dcomp + 1, dcomp + AMREX_SPACEDIM); // This neds to be modified to same begin and end to get sqrt Mom^2
-            // MatterConstraints<ScalarFieldWithPotential> constraints(
-                // scalar_field, Geom().CellSize(0), simParams().G_Newton, iham,
+            // MatterConstraints<SourceFieldsWithPotential> constraints(
+                // source_fields, Geom().CellSize(0), simParams().G_Newton, iham,
                 // imom); // This needs to also have an input of iham_abs and imom_abs
             int iham = dcomp;
             Interval imom = Interval(dcomp + 1, dcomp + 1);
             int iham_abs = dcomp+2;
             Interval imom_abs = Interval(dcomp + 3, dcomp + 3);
 
-            MatterConstraints<ScalarFieldWithPotential> constraints(
-                scalar_field, Geom().CellSize(0), simParams().G_Newton, iham,
+            MatterConstraints<SourceFieldsWithPotential> constraints(
+                source_fields, Geom().CellSize(0), simParams().G_Newton, iham,
                 imom, iham_abs, imom_abs);
             amrex::ParallelFor(
                 multifab, multifab.nGrowVect(),
@@ -392,8 +392,8 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
         {
             const auto &out_arrays = multifab.arrays();
 
-            EMTensor<ScalarFieldWithPotential> emtensor(
-                scalar_field, Geom().CellSize(0), dcomp);
+            EMTensor<SourceFieldsWithPotential> emtensor(
+                source_fields, Geom().CellSize(0), dcomp);
 
             amrex::ParallelFor(
                 multifab, multifab.nGrowVect(),
@@ -406,8 +406,8 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
         // {
         //     const auto &out_arrays = multifab.arrays();
 
-        //     MatterWeyl4<ScalarFieldWithPotential> weyl4(
-        //         scalar_field, simParams().extraction_params.center,
+        //     MatterWeyl4<SourceFieldsWithPotential> weyl4(
+        //         source_fields, simParams().extraction_params.center,
         //         Geom().CellSize(0), dcomp, simParams().formulation,
         //         simParams().G_Newton);
 

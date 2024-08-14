@@ -5,6 +5,7 @@
 
 #ifndef MULTISOURCECCZ4RHS_HPP_
 #define MULTISOURCECCZ4RHS_HPP_
+#define PI (3.14159265358979323846264338327950288E0)
 
 #include "CCZ4Geometry.hpp"
 #include "CCZ4RHS.hpp"
@@ -108,7 +109,8 @@ class MultiSourceCCZ4RHS : public CCZ4RHS<gauge_t, deriv_t>
             &matter_rhs, //!< the RHS data for each variable at that point.
         const Vars<data_t> &vars, //!< the value of the variables at the point.
         const Vars<Tensor<1, data_t>>
-            &d1 //!< the value of the first derivatives of the variables.
+            &d1, //!< the value of the first derivatives of the variables.
+        std::default_random_engine random_generator
     ) const;
 
     // Class members

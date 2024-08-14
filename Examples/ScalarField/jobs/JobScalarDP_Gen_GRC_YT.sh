@@ -128,20 +128,29 @@ echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks
 # # Cleaning former hdf5 and pout files
 rm -r ~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/jobs/output/*
 # rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures/*
-# rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
+rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
 
 # # # # Python Noise generator
-# cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
-# echo -e "Changed directory to `pwd`.\n"
-# source stoiic_env/bin/activate
-# python3 main.py --cfg config_default_GRT
-# cp ./output/dparams.txt $workdir
-# # str1="/post_processing/input/"
-# # newdir="$workdir$str1"
-# newdir="/home/yl844/rds/rds-dirac-dp002/yl844/VIZIR/input/"
-# rm -f $newdir*
-# cp -r ./output/. $newdir
-# deactivate
+cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
+echo -e "Changed directory to `pwd`.\n"
+nbox=64
+nsbox=8
+config_file="config_default_ISTORIZ"
+cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
+echo -e "Changed directory to `pwd`.\n"
+source stoiic_env/bin/activate
+python3 main.py --n $nbox --sn $nsbox --nsim $nbox --cfg $config_file
+
+echo -e "EXPORTS OF OUTPUTS FOR NEXT STAGE\n"
+echo "Time: `date`"
+
+cp ./output/dparams.txt $workdir
+
+newdir="/home/yl844/rds/rds-dirac-dp002/yl844/VIZIR/input/"
+rm -f $newdir*
+cp -r ./output/. $newdir
+deactivate
+rm -r ./output/*
 
 # GRTeclyn
 cd $workdir
@@ -154,3 +163,6 @@ cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR
 source YTenv/bin/activate
 echo -e "Changed directory to `pwd`.\n"
 srun python3 main.py --input GRT
+
+echo -e "SAVING PICTURES\n"
+./save_pics.sh ../STOIIC_GR/input/$config_file.yaml ./pictures_GRT ~/STOIIC_GR_plots_bank model.potential,scales.length,draw.time,model.end_time,scales.sigma_R,scales.sigma_dR,write.sim.software "N$nbox-$nsbox" 

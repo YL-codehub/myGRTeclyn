@@ -1,0 +1,3 @@
+CEXE_sources += test_SpectralModifier.cpp
+CEXE_headers += SpectralModifier.hpp
+

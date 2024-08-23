@@ -32,11 +32,12 @@ void FillWithRandomNoise(MultiFab& mf, double std, std::mt19937 gen) // could us
     }
 }
 
+
 // Example of function.
 double myFunction(double k) {
     double hubble = 1.0e-5;
     if (k<= hubble) {
-        return hubble*pow(k,-3/2)/sqrt(2);
+        return hubble*pow(k,-1.5)/sqrt(2.0);
     } else{
         return 0.0;
         }
@@ -85,7 +86,7 @@ int main(int argc, char* argv[])
     // Fill input MultiFab with random noise
     std::random_device rd;
     std::mt19937 gen(rd());
-    FillWithRandomNoise(input, pow(n_cell,-1.5),gen);
+    FillWithRandomNoise(input, pow(double(n_cell),-1.5),gen);
 
     // // Instantiate your SpectralModifier class
     SpectralModifier spectral_modifier(input, geom, verbose);

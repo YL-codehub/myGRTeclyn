@@ -30,6 +30,16 @@
 #include <AMReX_PlotFileUtilHDF5.H>
 #endif
 
+// Example of function.
+double myFourierAmplitude(double k) {
+    double hubble = 1.0e-5;
+    if (k<= hubble) {
+        return hubble*pow(k,-1.5)/sqrt(2.0);
+    } else{
+        return 0.0;
+        }
+}
+
 void ScalarFieldLevel::variableSetUp()
 {
     BL_PROFILE("ScalarFieldLevel::variableSetUp()");
@@ -67,16 +77,8 @@ void ScalarFieldLevel::variableSetUp()
     
     derive_lst.addComponent("density", desc_lst, State_Type, 0, num_state_components);
 
-    // // Add Weyl4 to the derive list
-    // derive_lst.add(
-    //     "Weyl4", amrex::IndexType::TheCellType(),
-    //     static_cast<int>(Weyl4::var_names.size()), Weyl4::var_names,
-    //     amrex::DeriveFuncFab(), // null function because we won't use it
-    //     [=](const amrex::Box &box) { return amrex::grow(box, nghost); },
-    //     &amrex::cell_quartic_interp);
-
-    // // We need all of the CCZ4 variables to calculate Weyl4 (except B)
-    // derive_lst.addComponent("Weyl4", desc_lst, State_Type, 0, c_B1);
+    // Setting up the spectral modifier and its random grid.
+    
 }
 
 // Things to do at each advance step, after the RK4 is calculated
@@ -143,7 +145,10 @@ void ScalarFieldLevel::initData()
             amrex::Abort("NaN in initData");
         }
     }
+    //Initialize stochastic quantities and methods
     initializeRandomEngine();
+    initializeStochasticMultiFabs(state);
+    SpectralModifier spectral_modifier(gaussian_grid, geom, 0);
 }
 
 // Things to do in RHS update, at each RK4 step
@@ -198,7 +203,7 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
             a_rhs,
             [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) {
                 matter_ccz4_rhs.compute(i, j, k, rhs_arrs[box_no],
-                                        soln_c_arrs[box_no], random_engine);
+                                        soln_c_arrs[box_no]);
             });
     }
     else if (simParams().max_spatial_derivative_order == 6)
@@ -213,10 +218,17 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
         {
             amrex::CellData<amrex::Real const> state = soln_c_arrs[box_no].cellData(i,j,k);
             amrex::CellData<amrex::Real> rhs = rhs_arrs[box_no].cellData(i,j,k);
-            matter_ccz4_rhs.compute(i,j,k,rhs_arrs[box_no], soln_c_arrs[box_no], random_engine);
+            matter_ccz4_rhs.compute(i,j,k,rhs_arrs[box_no], soln_c_arrs[box_no]);
         });
 #endif
     }
+
+    // Random draws
+    spectral_modifier.FillInputWithRandomNoise(random_engine);
+    amrex::MultiFab stochastic_rhs_R = spectral_modifier.apply_func(myFourierAmplitude);
+    // const auto &sto_rhs = stochastic_rhs_R.arrays();
+    amrex::MultiFab::Add(a_rhs,stochastic_rhs_R,0,0,1,0); //starting comp 1 , starting comp 2, nb of components to consider, nb of ghost cells to include
+    // and fill the ghosts?
 
     if (simParams().nan_check)
     {
@@ -403,22 +415,6 @@ void ScalarFieldLevel::derive(const std::string &name, amrex::Real time,
                                   src_arrays[box_no]);
                 });
         }
-        // else if (name == "Weyl4")
-        // {
-        //     const auto &out_arrays = multifab.arrays();
-
-        //     MatterWeyl4<SourceFieldsWithPotential> weyl4(
-        //         source_fields, simParams().extraction_params.center,
-        //         Geom().CellSize(0), dcomp, simParams().formulation,
-        //         simParams().G_Newton);
-
-        //     amrex::ParallelFor(
-        //         multifab, multifab.nGrowVect(),
-        //         [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k) noexcept {
-        //             weyl4.compute(i, j, k, out_arrays[box_no],
-        //                           src_arrays[box_no]);
-        //         });
-        // }
         else
         {
             amrex::Abort("Unknown derived variable");
@@ -439,3 +435,21 @@ void ScalarFieldLevel::initializeRandomEngine()
 
     amrex::Print() << "Initialized random engine with seed: " << seed << std::endl;
 }
+
+void ScalarFieldLevel::initializeStochasticMultiFabs(const MultiFab& existing_mf) {
+    // Get the BoxArray and DistributionMapping from the existing MultiFab
+    const BoxArray& ba = existing_mf.boxArray();
+    const DistributionMapping& dm = existing_mf.DistributionMap();
+
+    int ncomp = 1;               // Only one component
+    int ngrow = 0; //existing_mf.nGrow(); // Number of ghost cells same as existing_mf
+
+    // Initialize the new MultiFab
+    amrex::MultiFab gaussian_grid(ba, dm, ncomp, ngrow);
+    amrex::MultiFab stochastic_rhs_R(ba, dm, ncomp, ngrow);
+
+    gaussian_grid.setVal(0.0);
+    stochastic_rhs_R.setVal(0.0);
+
+}
+

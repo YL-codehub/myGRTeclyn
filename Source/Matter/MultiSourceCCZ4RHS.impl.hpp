@@ -26,7 +26,7 @@ template <class data_t>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
 MultiSourceCCZ4RHS<matter_t, gauge_t, deriv_t>::compute(
     int i, int j, int k, const amrex::Array4<data_t> &rhs,
-    const amrex::Array4<data_t const> &state, std::default_random_engine &random_generator) const
+    const amrex::Array4<data_t const> &state) const
 {
     // copy data from chombo gridpoint into local variables
     const auto matter_vars = load_vars<Vars>(state.cellData(i, j, k));
@@ -40,12 +40,10 @@ MultiSourceCCZ4RHS<matter_t, gauge_t, deriv_t>::compute(
     this->rhs_equation(matter_rhs, matter_vars, d1, d2, advec);
 
     // add RHS matter terms from EM Tensor
-    // PASSING RANDOM SEED AS CONST SO THAT THE SEED IS THE SAME FOR ALL RHS
-    add_geom_sources_rhs(matter_rhs, matter_vars, d1, random_generator);
+    add_geom_sources_rhs(matter_rhs, matter_vars, d1);
 
     // add evolution of matter fields themselves
-    // FINAL RHS's SEED IS PASSED BY REFERENCE TO GO TO NEXT RANDOM CALL
-    my_matter.add_sources_rhs(matter_rhs, matter_vars, d1, d2, advec, random_generator);
+    my_matter.add_sources_rhs(matter_rhs, matter_vars, d1, d2, advec);
 
     // Add dissipation to all terms
     this->m_deriv.add_dissipation(i, j, k, matter_rhs, state, this->m_sigma);
@@ -60,8 +58,7 @@ template <class data_t>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
 MultiSourceCCZ4RHS<matter_t, gauge_t, deriv_t>::add_geom_sources_rhs(
     Vars<data_t> &matter_rhs, const Vars<data_t> &matter_vars,
-    const Vars<Tensor<1, data_t>> &d1,
-    std::default_random_engine random_generator) const
+    const Vars<Tensor<1, data_t>> &d1) const
 {
     using namespace TensorAlgebra;
 
@@ -77,12 +74,8 @@ MultiSourceCCZ4RHS<matter_t, gauge_t, deriv_t>::add_geom_sources_rhs(
     {
         matter_rhs.K += 4.0 * M_PI * m_G_Newton * matter_vars.lapse *
                         (emtensor.S + emtensor.rho);
-        std::normal_distribution<double> distribution(0.0,1.0);
-        // double temp=distribution(random_generator);
-        // amrex::Print() << "Random draw 1 for K = " << matter_vars.K << " is " << temp << std::endl;
-        // matter_rhs.K -= -pow(3*matter_rhs.K/(pow(matter_vars.K,2)*matter_vars.lapse),0.5)*pow(-matter_vars.K/3,1.5)/(2*PI*M_PI*sqrt(2))*temp;
-        matter_rhs.K -= -pow(3*matter_rhs.K/(pow(matter_vars.K,2)*matter_vars.lapse),0.5)*pow(-matter_vars.K/3,1.5)/(2*PI*M_PI*sqrt(2))*distribution(random_generator); // first being the local epsilon_1
-         // Still need to divide by sqrt(dt) at one point
+        // std::normal_distribution<double> distribution(0.0,1.0);
+        // matter_rhs.K -= -pow(3*matter_rhs.K/(pow(matter_vars.K,2)*matter_vars.lapse),0.5)*pow(-matter_vars.K/3,1.5)/(2*PI*M_PI*sqrt(2))*sto_rhs; // first being the local epsilon_1
         matter_rhs.Theta += 0.0;
     }
     else

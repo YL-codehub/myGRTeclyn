@@ -13,6 +13,7 @@
 #include "Potential.hpp"
 #include "SourceFields.hpp"
 #include <random> // random numbers generation.
+#include "SpectralModifier.hpp"  // applying a spectrum to a random array
 
 //!  A class for the evolution of a scalar field, minimally coupled to gravity
 /*!
@@ -64,10 +65,17 @@ class ScalarFieldLevel : public GRAMRLevel
                 amrex::MultiFab &multifab, int dcomp) override;
   
   private:
-    std::default_random_engine random_engine;
+    // Random draw tools
+    std::mt19937 random_engine;
     unsigned int seed;
-    // Method to initialize the random seed
-    void initializeRandomEngine();
+    void initializeRandomEngine(); // Method to initialize the random seed
+    // Stochastic grids (Stored on main node)
+    amrex::MultiFab gaussian_grid;
+    amrex::MultiFab stochastic_rhs_R; // see eq. (47-48) of 10.1103/PhysRevD.109.123523 
+    void initializeStochasticMultiFabs(const MultiFab& existing_mf);
+    // spectral method class
+    SpectralModifier spectral_modifier;
+
 };
 
 #endif /* SCALARFIELDLEVEL_HPP_ */

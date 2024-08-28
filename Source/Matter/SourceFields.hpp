@@ -14,7 +14,7 @@
 #include "Tensor.hpp"
 #include "TensorAlgebra.hpp"
 #include "VarsTools.hpp"
-#include <random> //random numbers generation
+// #include <random> //random numbers generation
 
 //!  Calculates the matter type specific elements such as the EMTensor and
 //   matter evolution
@@ -108,9 +108,7 @@ template <class potential_t = DefaultPotential> class SourceFields
         const vars_t<data_t> &vars,          //!< value of the variables
         const vars_t<Tensor<1, data_t>> &d1, //!< value of the 1st derivs
         const diff2_vars_t<Tensor<2, data_t>> &d2, //!< value of the 2nd derivs
-        const vars_t<data_t> &advec,
-        std::default_random_engine &random_generator) // random engine to use on that cell.
-        const; //!< the value of the advection terms
+        const vars_t<data_t> &advec) const; //!< the value of the advection terms
 
     //! The function which calculates the RHS for the matter field vars
     //! excluding the potential

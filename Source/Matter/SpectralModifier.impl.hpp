@@ -1,15 +1,26 @@
-#ifndef SPECTRALMODIFIER_IMPL_HPP_
-#define SPECTRALMODIFIER_IMPL_HPP_
-#define PI (3.14159265358979323846264338327950288E0)
+#if !defined(SPECTRALMODIFIER_HPP)
+#error "This file should only be included through SpectralModifier.hpp"
+#endif
 
+#ifndef SPECTRALMODIFIER_IMPL_HPP
+#define SPECTRALMODIFIER_IMPL_HPP
+#define PI (3.14159265358979323846264338327950288E0)
 #define ALIGN 16 // no clue what this thing is
 
-#endif /* SPECTRALMODIFIER_IMPL_HPP_ */
+#include "SpectralModifier.hpp"
+
+// Default Constructor
+inline SpectralModifier::SpectralModifier (): 
+                  input(nullptr), geom(), verbose(), ba(nullptr), dmap(),
+                  n_box_dim(), domain(), numb_boxes_dim(),
+                  numb_boxes(), rank_mapping(), h()
+    {
+    }
 
 // Constructor
-SpectralModifier::SpectralModifier (const MultiFab& input, Geometry& geom, int verbose): 
-                  input(input), geom(geom), verbose(verbose), ba(input.boxArray()), dmap(input.DistributionMap()),
-                  n_box_dim(ba[0].size()), domain(geom.Domain()), numb_boxes_dim(domain.length() / n_box_dim),
+inline SpectralModifier::SpectralModifier (MultiFab& input, Geometry& geom, int verbose): 
+                  input(&input), geom(geom), verbose(verbose), ba(&(input.boxArray())), dmap(input.DistributionMap()),
+                  n_box_dim((*ba)[0].size()), domain(geom.Domain()), numb_boxes_dim(domain.length() / n_box_dim),
                   numb_boxes(numb_boxes_dim[0]*numb_boxes_dim[1]*numb_boxes_dim[2]), rank_mapping(), h(geom.CellSize(0))
     {
 
@@ -17,8 +28,10 @@ SpectralModifier::SpectralModifier (const MultiFab& input, Geometry& geom, int v
        amrex::Error("Current implementation requires that both input and output have no ghost cells");
       // Ericka said fillGhosts could be useful to use to fill periodic Ghost cells once I have filled in with my noise.
 
-    if (numb_boxes != ba.size())  // size of Box object = nx*ny*nz
-       amrex::Error("numb_boxes NOT COMPUTED CORRECTLY");
+    if (numb_boxes != (*ba).size()) { // size of Box object = nx*ny*nz
+       amrex::Print() <<  ba <<std::endl;
+       amrex::Print() << numb_boxes << std::endl;
+       amrex::Error("numb_boxes not right");}
 
     rank_mapping.resize(numb_boxes); 
     remap();
@@ -27,7 +40,7 @@ SpectralModifier::SpectralModifier (const MultiFab& input, Geometry& geom, int v
 
     }
 
-void SpectralModifier::remap()
+inline void SpectralModifier::remap()
 {
     //Building the FFT's new C-ordered rank mapping.
     // AMREX has Fortran/ column-major ordering (first index, ie x, changing fastest in memory: arr[i_x][i_y][i_z] --> arr[i_x+ n_x*i_y+n_x*n_y*i_z])
@@ -36,9 +49,9 @@ void SpectralModifier::remap()
     for (int ib = 0; ib < numb_boxes; ++ib) // For each subbox
     {
         // The smallEnd method provides the indices of the lower corner of the Box in each dimension.
-        int i = ba[ib].smallEnd(0) / n_box_dim[0]; 
-        int j = ba[ib].smallEnd(1) / n_box_dim[1];
-        int k = ba[ib].smallEnd(2) / n_box_dim[2];
+        int i = (*ba)[ib].smallEnd(0) / n_box_dim[0]; 
+        int j = (*ba)[ib].smallEnd(1) / n_box_dim[1];
+        int k = (*ba)[ib].smallEnd(2) / n_box_dim[2];
 
         // This would be the "correct" local index if the data wasn't being transformed
         // int local_index = k*nbx*nby + j*nbx + i;
@@ -54,10 +67,10 @@ void SpectralModifier::remap()
     }
 }
 
-MultiFab SpectralModifier::apply_func(double (*amp_func)(double))
+inline MultiFab SpectralModifier::apply_func(double (*amp_func)(double))
     {
-    MultiFab output(input.boxArray(), input.DistributionMap(), input.nComp(), input.nGrow());
-    output.ParallelCopy(input);
+    MultiFab output((*input).boxArray(), (*input).DistributionMap(), (*input).nComp(), (*input).nGrow());
+    output.ParallelCopy((*input));
 
     // Assume for now that nx = ny = nz
     int Ndims[3] = {numb_boxes_dim[2], numb_boxes_dim[1], numb_boxes_dim[0]};
@@ -68,7 +81,7 @@ MultiFab SpectralModifier::apply_func(double (*amp_func)(double))
     hacc::Dfft dfft(d); // creates the dfftiser
 
 
-    for (MFIter mfi(input,false); mfi.isValid(); ++mfi) // iterating over the FArrayBox objects (subboxes = Box) that are stored locally on the current MPI rank.
+    for (MFIter mfi((*input),false); mfi.isValid(); ++mfi) // iterating over the FArrayBox objects (subboxes = Box) that are stored locally on the current MPI rank.
     {
        int gid = mfi.index();
 
@@ -93,7 +106,7 @@ MultiFab SpectralModifier::apply_func(double (*amp_func)(double))
         for(size_t j=0; j<(size_t)n_box_dim[1]; j++) {
          for(size_t i=0; i<(size_t)n_box_dim[0]; i++) {
 
-           complex_t temp(input[mfi].dataPtr()[local_indx],0.);
+           complex_t temp((*input)[mfi].dataPtr()[local_indx],0.);
            a[local_indx] = temp;
            local_indx++;
 
@@ -159,6 +172,29 @@ MultiFab SpectralModifier::apply_func(double (*amp_func)(double))
     }
     return output;
     }
+
+// Function to fill MultiFab with random noise
+inline void SpectralModifier::FillInputWithRandomNoise(std::mt19937 gen) // could use a parallel for there no? no
+{
+    double stddev = pow(double(n_box_dim[0]*n_box_dim[1]*n_box_dim[2]),-0.5); // Normalisation to get a rayleigh draw once in Fourier space.
+    std::normal_distribution<Real>  dis(0.0, stddev); 
+    for (MFIter mfi((*input)); mfi.isValid(); ++mfi)
+    {
+        const Box& box = mfi.validbox();
+        auto arr = ((*input)[mfi]).array();
+
+        for (int k = box.smallEnd(2); k <= box.bigEnd(2); ++k) {
+            for (int j = box.smallEnd(1); j <= box.bigEnd(1); ++j) {
+                for (int i = box.smallEnd(0); i <= box.bigEnd(0); ++i) {
+                    arr(i,j,k) = dis(gen);
+                }
+            }
+        }
+    }
+}
+
+
+#endif /* SPECTRALMODIFIER_IMPL_HPP_ */
 
 ///////////////////////////////
    //  How do you do fft on small domains and then gather for bigger wavelengths?? 

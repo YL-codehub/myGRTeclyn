@@ -14,6 +14,7 @@ module load rhel8/default-icl # loads Intel compiler and MPI
 
 module load intel-oneapi-mkl/2022.1.0/intel/mngj3ad6
 module load hdf5/1.10.8/intel/intel-oneapi-mpi/h75adcal
+module load fftw/3.3.10/intel/intel-oneapi-mpi/uqgpuef7
 
 # str1="/../../../Chombo/lib/" 
 # newdir="$PWD$str1"

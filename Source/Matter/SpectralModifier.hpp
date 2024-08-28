@@ -1,7 +1,7 @@
 // Credits to Yoann L. Launay, adapted from HACC/SWFFT or amrex-tutorials
 
-#ifndef SPECTRALMODIFIER_HPP_
-#define SPECTRALMODIFIER_HPP_
+#ifndef SPECTRALMODIFIER_HPP
+#define SPECTRALMODIFIER_HPP
 
 #include <AMReX_IntVect.H>
 #include <AMReX_MultiFab.H>
@@ -17,19 +17,21 @@ using namespace amrex;
 class SpectralModifier
 {
 public:
-    SpectralModifier (const MultiFab& input,
+    inline SpectralModifier (MultiFab& input,
                 Geometry& geom,
                 int verbose);
-
-    MultiFab apply_func (double (*amp_func)(double));
-    void apply_array ();
+                
+    inline SpectralModifier ();
+    inline MultiFab apply_func (double (*amp_func)(double));
+    inline void apply_array ();
+    inline void FillInputWithRandomNoise(std::mt19937 gen);
 
 private:
-
-    const MultiFab& input;
+    // pointers are sometimes useful because they can be initialized as nullptr
+    MultiFab* input;
     Geometry geom;
     int verbose = 2;
-    const BoxArray& ba;
+    const BoxArray* ba;
     DistributionMapping dmap;
     IntVect n_box_dim; // n for each subbox (assumed the same everywhere) for each dim  // SIZE OF EACH SUBGRID (one per rank). ba[0] gives the first subbox. Same nx,ny,nz on all ranks // size of BoxArray = number of subboxes
     Box domain;
@@ -38,9 +40,8 @@ private:
     Vector<int> rank_mapping;
     Real h;
 
-    void remap ();
+    inline void remap ();
 };
 
-
 #include "SpectralModifier.impl.hpp"
-#endif /* SPECTRALMODIFIER_HPP_ */
+#endif /* SPECTRALMODIFIER_HPP */

@@ -17,7 +17,7 @@
 #include "TensorAlgebra.hpp"
 #include "VarsTools.hpp"
 #include "simd.hpp"
-#include <random> // for random number generation.
+// #include <random> // for random number generation.
 
 //!  Calculates RHS using CCZ4 including matter terms, and matter variable
 //!  evolution
@@ -98,19 +98,16 @@ class MultiSourceCCZ4RHS : public CCZ4RHS<gauge_t, deriv_t>
     template <class data_t>
     AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
     compute(int i, int j, int k, const amrex::Array4<data_t> &rhs,
-            const amrex::Array4<data_t const> &state, std::default_random_engine &random_generator) const;
+            const amrex::Array4<data_t const> &state) const;
 
   protected:
     //! The function which adds in the EM Tensor terms to the CCZ4 rhs \sa
     //! compute()
     template <class data_t>
     AMREX_GPU_DEVICE AMREX_FORCE_INLINE void add_geom_sources_rhs(
-        Vars<data_t>
-            &matter_rhs, //!< the RHS data for each variable at that point.
+        Vars<data_t> &matter_rhs, //!< the RHS data for each variable at that point.
         const Vars<data_t> &vars, //!< the value of the variables at the point.
-        const Vars<Tensor<1, data_t>>
-            &d1, //!< the value of the first derivatives of the variables.
-        std::default_random_engine random_generator
+        const Vars<Tensor<1, data_t>> &d1 //!< the value of the first derivatives of the variables.
     ) const;
 
     // Class members

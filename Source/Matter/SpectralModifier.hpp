@@ -23,6 +23,7 @@ public:
                 
     inline SpectralModifier ();
     inline MultiFab apply_func (double (*amp_func)(double));
+    inline void apply_func(double (*amp_func)(double), MultiFab& output);
     inline void apply_array ();
     inline void FillInputWithRandomNoise(std::mt19937 gen);
 
@@ -37,10 +38,8 @@ private:
     Box domain;
     IntVect numb_boxes_dim; // number of subboxes per direction //length of Box object = associated nx/ny/nz
     int numb_boxes; // total number of subboxes
-    Vector<int> rank_mapping;
+    Vector<int> rank_mapping; // to be passed from amrex rank mapping to dfft's
     Real h;
-
-    inline void remap ();
 };
 
 #include "SpectralModifier.impl.hpp"

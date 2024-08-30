@@ -76,8 +76,6 @@ void ScalarFieldLevel::variableSetUp()
         &amrex::cell_quartic_interp);
     
     derive_lst.addComponent("density", desc_lst, State_Type, 0, num_state_components);
-
-    // Setting up the spectral modifier and its random grid.
     
 }
 
@@ -145,10 +143,10 @@ void ScalarFieldLevel::initData()
             amrex::Abort("NaN in initData");
         }
     }
-    //Initialize stochastic quantities and methods
+    //Initialize stochastic engine/seed
     initializeRandomEngine();
+    // Setting up the spectral modifier and its random grid.
     initializeStochasticMultiFabs(state);
-    SpectralModifier spectral_modifier(gaussian_grid, geom, 0);
 }
 
 // Things to do in RHS update, at each RK4 step
@@ -225,11 +223,15 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
 
     // Random draws
     spectral_modifier.FillInputWithRandomNoise(random_engine);
-    amrex::MultiFab stochastic_rhs_R = spectral_modifier.apply_func(myFourierAmplitude);
-    // const auto &sto_rhs = stochastic_rhs_R.arrays();
+    amrex::Print() << "1 step a done!" << std::endl;
+    // amrex::MultiFab output = spectral_modifier.apply_func(myFourierAmplitude);
+    spectral_modifier.apply_func(myFourierAmplitude, stochastic_rhs_R);
+    amrex::Print() << "1 step b done!" << std::endl;
+    // stochastic_rhs_R.ParallelCopy(output);
+    amrex::Print() << "1 step c done!" << std::endl;
     amrex::MultiFab::Add(a_rhs,stochastic_rhs_R,0,0,1,0); //starting comp 1 , starting comp 2, nb of components to consider, nb of ghost cells to include
     // and fill the ghosts?
-
+    amrex::Print() << "1 step d done!" << std::endl;
     if (simParams().nan_check)
     {
         if (a_soln.contains_nan(0, a_soln.nComp(), amrex::IntVect(0), true))
@@ -437,19 +439,15 @@ void ScalarFieldLevel::initializeRandomEngine()
 }
 
 void ScalarFieldLevel::initializeStochasticMultiFabs(const MultiFab& existing_mf) {
-    // Get the BoxArray and DistributionMapping from the existing MultiFab
-    const BoxArray& ba = existing_mf.boxArray();
-    const DistributionMapping& dm = existing_mf.DistributionMap();
 
     int ncomp = 1;               // Only one component
     int ngrow = 0; //existing_mf.nGrow(); // Number of ghost cells same as existing_mf
 
-    // Initialize the new MultiFab
-    amrex::MultiFab gaussian_grid(ba, dm, ncomp, ngrow);
-    amrex::MultiFab stochastic_rhs_R(ba, dm, ncomp, ngrow);
-
+    gaussian_grid.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+    stochastic_rhs_R.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
     gaussian_grid.setVal(0.0);
     stochastic_rhs_R.setVal(0.0);
+    spectral_modifier = SpectralModifier(gaussian_grid, geom, 0);
 
 }
 

@@ -11,6 +11,7 @@
 #include <Distribution.H>
 #include <AlignedAllocator.h>
 #include <Dfft.H>
+#define ALIGN 16 // no clue what this thing is
 
 using namespace amrex;
 
@@ -25,7 +26,8 @@ public:
     inline MultiFab apply_func (double (*amp_func)(double));
     inline void apply_func(double (*amp_func)(double), MultiFab& output);
     inline void apply_array ();
-    inline void FillInputWithRandomNoise(std::mt19937 gen);
+    inline void FillInputWithRandomNoise(std::mt19937& gen);
+    inline void remap();
 
 private:
     // pointers are sometimes useful because they can be initialized as nullptr
@@ -40,6 +42,10 @@ private:
     int numb_boxes; // total number of subboxes
     Vector<int> rank_mapping; // to be passed from amrex rank mapping to dfft's
     Real h;
+
+    // fft buffers
+    std::vector<complex_t, hacc::AlignedAllocator<complex_t, ALIGN> > a;  //memory is allocated with a specific alignment
+    std::vector<complex_t, hacc::AlignedAllocator<complex_t, ALIGN> > b; // b is basically a buffer storage (ie intermediary things used in calculations)
 };
 
 #include "SpectralModifier.impl.hpp"

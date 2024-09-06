@@ -32,7 +32,7 @@
 
 // Example of function.
 double myFourierAmplitude(double k) {
-    double hubble = 1.0e-5;
+    double hubble = 1.0e-3;
     if (k<= hubble) {
         return hubble*pow(k,-1.5)/sqrt(2.0);
     } else{
@@ -222,18 +222,24 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
     }
 
     // Random draws
-    spectral_modifier.FillInputWithRandomNoise(random_engine);
-    amrex::Print() << "1 step a done!" << std::endl;
+    // former method:
     // amrex::MultiFab output = spectral_modifier.apply_func(myFourierAmplitude);
-    spectral_modifier.apply_func(myFourierAmplitude, stochastic_rhs_R);
-    amrex::Print() << "1 step b done!" << std::endl;
     // stochastic_rhs_R.ParallelCopy(output);
-    amrex::Print() << "1 step c done!" << std::endl;
-    amrex::MultiFab::Add(a_rhs,stochastic_rhs_R,0,0,1,0); //starting comp 1 , starting comp 2, nb of components to consider, nb of ghost cells to include
-    // and fill the ghosts?
-    amrex::Print() << "1 step d done!" << std::endl;
+
+
+    int comp_to_fill = 25; //This should be the momentum
+
+    spectral_modifier.FillInputWithRandomNoise(random_engine);
+    // amrex::Print() << "Box draw = done" << std::endl;
+
+    spectral_modifier.apply_func(myFourierAmplitude, stochastic_rhs_R);
+    // amrex::Print() << "Apply spec = done" << std::endl;
+
+    amrex::MultiFab::Add(a_rhs, stochastic_rhs_R, 0, comp_to_fill, 1, 0);
+    // amrex::Print() << "Stochastic source  added" << std::endl;
+
     if (simParams().nan_check)
-    {
+    {   
         if (a_soln.contains_nan(0, a_soln.nComp(), amrex::IntVect(0), true))
         {
 

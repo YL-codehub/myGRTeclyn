@@ -19,7 +19,7 @@
 #! How many (MPI) tasks will there be in total? (<= nodes*76)
 #! The Ice Lake (icelake) nodes have 76 CPUs (cores) each and
 #! 3380 MiB of memory per CPU.
-#SBATCH --ntasks=64
+#SBATCH --ntasks=8
 #! How much wallclock time will be required?
 #SBATCH --time=01:00:00
 #! What types of email messages do you wish to receive?
@@ -159,10 +159,10 @@ echo -e "\nExecuting command:\n==================\n$CMD\n"
 eval $CMD 
 
 # # # # Now doing post-processing
-# cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR
-# source YTenv/bin/activate
-# echo -e "Changed directory to `pwd`.\n"
-# srun python3 main.py --input GRT
+cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR
+source YTenv/bin/activate
+echo -e "Changed directory to `pwd`.\n"
+srun python3 main.py --input GRT
 
 # echo -e "SAVING PICTURES\n"
 # ./save_pics.sh ../STOIIC_GR/input/$config_file.yaml ./pictures_GRT ~/STOIIC_GR_plots_bank model.potential,scales.length,draw.time,model.end_time,scales.sigma_R,scales.sigma_dR,write.sim.software "N$nbox-$nsbox" 

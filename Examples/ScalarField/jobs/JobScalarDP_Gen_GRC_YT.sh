@@ -127,36 +127,38 @@ echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks
 
 # # Cleaning former hdf5 and pout files
 rm -r ~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/jobs/output/*
-# rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures/*
-# rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
+rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
 
-# # # # Python Noise generator
-# cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
-# echo -e "Changed directory to `pwd`.\n"
-# nbox=64
-# nsbox=8
-# config_file="config_default_ISTORIZ"
-# cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
-# echo -e "Changed directory to `pwd`.\n"
-# source stoiic_env/bin/activate
-# python3 main.py --n $nbox --sn $nsbox --nsim $nbox --cfg $config_file
+# # # Python Noise generator
+cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
+echo -e "Changed directory to `pwd`.\n"
+nbox=64
+nsbox=32
+config_file="config_default_ISTORIZ"
+cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
+echo -e "Changed directory to `pwd`.\n"
+source stoiic_env/bin/activate
+python3 main.py --n $nbox --sn $nsbox --nsim $nbox --cfg $config_file
 
-# echo -e "EXPORTS OF OUTPUTS FOR NEXT STAGE\n"
-# echo "Time: `date`"
+echo -e "EXPORTS OF OUTPUTS FOR NEXT STAGE\n"
+echo "Time: `date`"
 
-# cp ./output/dparams.txt $workdir
+cp ./output/dparams.txt $workdir
 
-# newdir="/home/yl844/rds/rds-dirac-dp002/yl844/VIZIR/input/"
-# rm -f $newdir*
-# cp -r ./output/. $newdir
-# deactivate
-# rm -r ./output/*
+newdir="/home/yl844/rds/rds-dirac-dp002/yl844/VIZIR/input/"
+rm -f $newdir*
+cp -r ./output/. $newdir
+deactivate
+rm -r ./output/*
 
 # GRTeclyn
 cd $workdir
 echo -e "Changed directory to `pwd`.\n"
 echo -e "\nExecuting command:\n==================\n$CMD\n"
 eval $CMD 
+
+## remove initial point which has no stochastic draw, for the sake of plots.
+rm -r ~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/jobs/output/plt_00000
 
 # # # # Now doing post-processing
 cd /home/yl844/rds/rds-dirac-dp002/yl844/VIZIR

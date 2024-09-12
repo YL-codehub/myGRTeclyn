@@ -171,7 +171,8 @@ inline MultiFab SpectralModifier::apply_func(double (*amp_func)(double))
     }
 
 
-inline void SpectralModifier::apply_func(double (*amp_func)(double), MultiFab& output)
+// inline void SpectralModifier::apply_func(double (*amp_func)(double), MultiFab& output)
+inline void SpectralModifier::apply_func(std::function<double(double)> amp_func, MultiFab& output)
     {
 
     // Assume for now that nx = ny = nz

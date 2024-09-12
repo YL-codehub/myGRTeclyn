@@ -55,6 +55,7 @@ class InitialScalarData
         double min_chi;
         double min_lapse;
         std::array<double, AMREX_SPACEDIM> center;   //! coordinates center
+        double sigma; // cutoff SI
         // double dx_input; // coordinates of the input grid. 
         // std::vector<double> delta_phi; // flat array (vector) 
         // std::vector<double> delta_Pi; 

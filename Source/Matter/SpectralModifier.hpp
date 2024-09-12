@@ -24,7 +24,8 @@ public:
                 
     inline SpectralModifier ();
     inline MultiFab apply_func (double (*amp_func)(double));
-    inline void apply_func(double (*amp_func)(double), MultiFab& output);
+    // inline void apply_func(double (*amp_func)(double), MultiFab& output);
+    inline void apply_func(std::function<double(double)> amp_func, MultiFab& output);
     inline void apply_array ();
     inline void FillInputWithRandomNoise(std::mt19937& gen);
     inline void remap();

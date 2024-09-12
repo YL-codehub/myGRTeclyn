@@ -40,6 +40,7 @@ class SimulationParameters : public SimulationParametersBase
         pp.load("background_phi", initial_params.background_phi, 0.0);
         pp.load("background_dphi", initial_params.background_dphi, 0.0);
         pp.load("hubble", initial_params.hubble, 0.0);
+        pp.load("sigma", initial_params.sigma, 1.0);
         pp.load("min_chi", initial_params.min_chi, 1e-4);
         pp.load("min_lapse", initial_params.min_lapse, 1e-4);
         pp.load("potential_param_1", potential_params.potential_param_1, 0.0);

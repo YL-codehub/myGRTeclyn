@@ -30,6 +30,22 @@
 #include <AMReX_PlotFileUtilHDF5.H>
 #endif
 
+
+// Power function (not used yet)
+void CustomElementWiseOperation(MultiFab& mf, const int& component, double (*func)(double)){
+    for (MFIter mfi(mf); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.validbox();  // Get the valid box for the current grid
+        auto const& arr = mf.array(mfi); // Access the grid data
+
+        // Apply lambda function element-wise within the box using ParallelFor
+        amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept {
+            // Apply a lambda function to the 6th component of each grid cell
+            arr(i, j, k, component) = func(arr(i, j, k, component));  //although not so sure that.
+        });
+    }
+}
+
+
 // Example of function.
 double myFourierAmplitude(double k) {
     double hubble = 1.0e-3;
@@ -39,6 +55,8 @@ double myFourierAmplitude(double k) {
         return 0.0;
         }
 }
+
+// for later auto g = [](double x) { return f(x, 3.0); };
 
 void ScalarFieldLevel::variableSetUp()
 {
@@ -221,22 +239,9 @@ void ScalarFieldLevel::specificEvalRHS(amrex::MultiFab &a_soln,
 #endif
     }
 
-    // Random draws
-    // former method:
-    // amrex::MultiFab output = spectral_modifier.apply_func(myFourierAmplitude);
-    // stochastic_rhs_R.ParallelCopy(output);
+    /////////////////////// STOCHASTIC SOURCES ////////////////////////////////////
+    specificEvalStochasticRHS(a_soln,a_rhs);
 
-
-    int comp_to_fill = 25; //This should be the momentum
-
-    spectral_modifier.FillInputWithRandomNoise(random_engine);
-    // amrex::Print() << "Box draw = done" << std::endl;
-
-    spectral_modifier.apply_func(myFourierAmplitude, stochastic_rhs_R);
-    // amrex::Print() << "Apply spec = done" << std::endl;
-
-    amrex::MultiFab::Add(a_rhs, stochastic_rhs_R, 0, comp_to_fill, 1, 0);
-    // amrex::Print() << "Stochastic source  added" << std::endl;
 
     if (simParams().nan_check)
     {   
@@ -451,9 +456,85 @@ void ScalarFieldLevel::initializeStochasticMultiFabs(const MultiFab& existing_mf
 
     gaussian_grid.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
     stochastic_rhs_R.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+    stochastic_rhs_Pi.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+    stochastic_rhs_K.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+
     gaussian_grid.setVal(0.0);
     stochastic_rhs_R.setVal(0.0);
+    stochastic_rhs_Pi.setVal(0.0);
+    stochastic_rhs_K.setVal(0.0);
+
     spectral_modifier = SpectralModifier(gaussian_grid, geom, 0);
+
+    if (StateVariables::names[comp_Pi] != "Pi") 
+        {// {amrex::Print() << "Current comp  of Pi is " << StateVariables::names[comp_Pi] << std::endl;
+        amrex::Abort("Wrong component for Pi.");
+        }
+    if (StateVariables::names[comp_K] != "K" )
+        {// {amrex::Print() << "Current comp of K is  " << StateVariables::names[comp_K] << std::endl;
+
+        amrex::Abort("Wrong component for K.");
+        }
+    if (StateVariables::names[comp_chi] != "chi" )
+        {// {amrex::Print() << "Current comp of K is  " << StateVariables::names[comp_K] << std::endl;
+
+        amrex::Abort("Wrong component for chi.");
+        }
+    
+    for (MFIter mfi(existing_mf); mfi.isValid(); ++mfi) {
+        num_cells += double(mfi.validbox().numPts());  // Counting the valid cells in the MultiFab, used later for averaging
+    }
+
+    Mpl = pow(8*PI*simParams().G_Newton,-0.5);
+    sigma = simParams().initial_params.sigma;
+    // sigma = read from params?;
 
 }
 
+
+void ScalarFieldLevel::specificEvalStochasticRHS(amrex::MultiFab &a_soln,amrex::MultiFab &a_rhs){
+
+    // Background quantities for factors //ignore non-commutativity of <> and operations for now.
+    amrex::Real current_dt = parent->dtLevel(level);
+    double av_a = pow(a_soln.sum(comp_chi,true)/num_cells,-0.5);
+    double av_H = a_soln.sum(comp_K, true)/num_cells/-3.0; // average H without ghost cells
+    double av_inv_rad = av_a*av_H; //inverse Hubble radius
+    double av_eps1 = a_rhs.sum(comp_K, true)/num_cells/pow(av_H,2.0)/3.0;  //see 14/08/24 draft 6, lapse = 1 for now.
+    // amrex::Print() << "Average computations: " << std::endl;
+    // amrex::Print() << "<a> = " << av_a << std::endl;
+    // amrex::Print() << "<H> = " << av_H << std::endl;
+    // amrex::Print() << "<R^-1> = " << av_inv_rad << std::endl;
+    // amrex::Print() << "<eps_1> = " << av_eps1 << std::endl;
+    spectral_modifier.FillInputWithRandomNoise(random_engine);
+
+    // Build the window function's boundaries.
+    double k_cross = sigma*av_inv_rad;
+    double delta_k = k_cross*av_H*current_dt*(1-av_eps1)/2.0; // see draft 6, 9/9/24
+    double ksup = k_cross+delta_k;
+    double kinf = k_cross-delta_k;
+
+    auto CurrentFourierAmplitude = [=](double k) -> double {
+        if (k < ksup && k > kinf) {
+            double window = k/k_cross/current_dt;
+            return av_H * std::pow(k, -1.5) / std::sqrt(2.0)/Mpl;
+        } else {
+            return 0.0;
+        }
+    };
+
+    // spectral_modifier.apply_func(myFourierAmplitude, stochastic_rhs_R);
+    spectral_modifier.apply_func(CurrentFourierAmplitude, stochastic_rhs_R);
+
+    // Wiener process scaling of the noise, before discrete x dt. See Specs.
+    stochastic_rhs_R.mult(pow(current_dt,-0.5), 0, 1, 0);
+
+    // Make stoch. rhs of Pi
+    stochastic_rhs_R.mult(-1.0*pow(2.0*av_eps1,0.5)*Mpl, 0, 1, 0);
+    amrex::MultiFab::Add(a_rhs, stochastic_rhs_R, 0, comp_Pi, 1, 0);
+
+    // Make stoch. rhs of K from the previous one
+    stochastic_rhs_R.mult(-1.0*pow(av_eps1/2.0,0.5)/Mpl, 0, 1, 0);
+    amrex::MultiFab::Add(a_rhs, stochastic_rhs_R, 0, comp_K, 1, 0);
+    // amrex::Print() << "Stochastic source  added" << std::endl;
+
+}

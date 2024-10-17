@@ -19,9 +19,9 @@
 #! How many (MPI) tasks will there be in total? (<= nodes*76)
 #! The Ice Lake (icelake) nodes have 76 CPUs (cores) each and
 #! 3380 MiB of memory per CPU.
-#SBATCH --ntasks=8
+#SBATCH --ntasks=64
 #! How much wallclock time will be required?
-#SBATCH --time=02:00:00
+#SBATCH --time=2:00:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=NONE
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -125,14 +125,14 @@ fi
 echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks_per_node (OMP_NUM_THREADS=$OMP_NUM_THREADS)"
 
 
-# # Cleaning former hdf5 and pout files
+# Cleaning former hdf5 and pout files
 rm -r ~/rds/rds-dirac-dp002/yl844/myGRTeclyn/Examples/ScalarField/jobs/output/*
 rm -r ~/rds/rds-dirac-dp002/yl844/VIZIR/pictures_GRT/*
 
-# # # Python Noise generator
+# # Python Noise generator
 cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
 echo -e "Changed directory to `pwd`.\n"
-nbox=64
+nbox=128
 nsbox=32
 config_file="config_default_ISTORIZ"
 cd "/home/yl844/rds/rds-dirac-dp002/yl844/STOIIC_GR/"
@@ -151,7 +151,7 @@ cp -r ./output/. $newdir
 deactivate
 rm -r ./output/*
 
-# GRTeclyn
+# # GRTeclyn
 cd $workdir
 echo -e "Changed directory to `pwd`.\n"
 echo -e "\nExecuting command:\n==================\n$CMD\n"
@@ -168,3 +168,4 @@ srun python3 main.py --input GRT
 
 # echo -e "SAVING PICTURES\n"
 # ./save_pics.sh ../STOIIC_GR/input/$config_file.yaml ./pictures_GRT ~/STOIIC_GR_plots_bank model.potential,scales.length,draw.time,model.end_time,scales.sigma_R,scales.sigma_dR,write.sim.software "N$nbox-$nsbox" 
+./save_pics.sh ../STOIIC_GR/input/config_default_ISTORIZ.yaml ./pictures_GRT ~ISTORIZ_plots_bank model.potential,scales.length,draw.time,model.end_time,write.sim.sigma  "N$nbox-$nsbox"

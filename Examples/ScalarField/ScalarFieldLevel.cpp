@@ -45,6 +45,10 @@ void CustomElementWiseOperation(MultiFab& mf, const int& component, double (*fun
     }
 }
 
+double PowNegativeHalf(double x) {
+    return std::pow(x, -0.5);
+}
+
 
 // Example of function.
 double myFourierAmplitude(double k) {
@@ -55,6 +59,38 @@ double myFourierAmplitude(double k) {
         return 0.0;
         }
 }
+
+double Heaviside(double x) {
+    return (x >= 0.0) ? 1.0 : 0.0;
+}
+
+double sigmoid(double x) {
+    return 1.0 / (1.0 + std::exp(-x));
+}
+
+// Windowing functions examples:
+double dWindow(double dk_t_up, double dk_t_down, std::string type) {
+    if (type == "heaviside") {
+        return Heaviside(dk_t_up)-Heaviside(dk_t_down);
+    } 
+    else if (type == "erf") {
+        return std::erf(dk_t_up)-std::erf(dk_t_down);
+        }
+    else if (type == "sigmoid"){
+        return sigmoid(dk_t_up)-sigmoid(dk_t_down);
+    }
+    else if (type == "gaussian"){
+        return std::exp(-pow(dk_t_up,2)/2.0)-std::exp(-pow(dk_t_down,2)/2.0);
+    }
+    }
+
+// Windowing functions examples:
+double DWindowDt(double k_ratio, double dlog_ksig_dt, std::string type) {
+    if (type == "gaussian"){
+        return pow(k_ratio,2.0)*dlog_ksig_dt*std::exp(-pow(k_ratio,2)/2.0);
+    }
+    }
+
 
 // for later auto g = [](double x) { return f(x, 3.0); };
 
@@ -456,13 +492,15 @@ void ScalarFieldLevel::initializeStochasticMultiFabs(const MultiFab& existing_mf
 
     gaussian_grid.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
     stochastic_rhs_R.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
-    stochastic_rhs_Pi.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
-    stochastic_rhs_K.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+    // stochastic_rhs_Pi.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+    // stochastic_rhs_K.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, ngrow);
+    buffer.define(existing_mf.boxArray(), existing_mf.DistributionMap(), ncomp, existing_mf.nGrow());
 
     gaussian_grid.setVal(0.0);
     stochastic_rhs_R.setVal(0.0);
-    stochastic_rhs_Pi.setVal(0.0);
-    stochastic_rhs_K.setVal(0.0);
+    // stochastic_rhs_Pi.setVal(0.0);
+    // stochastic_rhs_K.setVal(0.0);
+    buffer.setVal(0.0);
 
     spectral_modifier = SpectralModifier(gaussian_grid, geom, 0);
 
@@ -486,47 +524,60 @@ void ScalarFieldLevel::initializeStochasticMultiFabs(const MultiFab& existing_mf
     }
 
     Mpl = pow(8*PI*simParams().G_Newton,-0.5);
+    amrex::Print() << "Mpl = " << Mpl << std::endl;
     sigma = simParams().initial_params.sigma;
-    // sigma = read from params?;
+    amrex::Print() << "sigma = " << sigma << std::endl;
+    spectral_modifier.FillInputWithRandomNoise(random_engine); // NEW /!!
 
 }
-
 
 void ScalarFieldLevel::specificEvalStochasticRHS(amrex::MultiFab &a_soln,amrex::MultiFab &a_rhs){
 
     // Background quantities for factors //ignore non-commutativity of <> and operations for now.
     amrex::Real current_dt = parent->dtLevel(level);
+
     double av_a = pow(a_soln.sum(comp_chi,true)/num_cells,-0.5);
     double av_H = a_soln.sum(comp_K, true)/num_cells/-3.0; // average H without ghost cells
     double av_inv_rad = av_a*av_H; //inverse Hubble radius
     double av_eps1 = a_rhs.sum(comp_K, true)/num_cells/pow(av_H,2.0)/3.0;  //see 14/08/24 draft 6, lapse = 1 for now.
     // amrex::Print() << "Average computations: " << std::endl;
-    // amrex::Print() << "<a> = " << av_a << std::endl;
-    // amrex::Print() << "<H> = " << av_H << std::endl;
-    // amrex::Print() << "<R^-1> = " << av_inv_rad << std::endl;
-    // amrex::Print() << "<eps_1> = " << av_eps1 << std::endl;
-    spectral_modifier.FillInputWithRandomNoise(random_engine);
+    // spectral_modifier.FillInputWithRandomNoise(random_engine);
 
     // Build the window function's boundaries.
     double k_cross = sigma*av_inv_rad;
-    double delta_k = k_cross*av_H*current_dt*(1-av_eps1)/2.0; // see draft 6, 9/9/24
-    double ksup = k_cross+delta_k;
-    double kinf = k_cross-delta_k;
+    double delta_k = k_cross*av_H*current_dt*(1.0-av_eps1)/2.0; // see draft 6, 9/9/24
+    // double ksup = k_cross+delta_k;
+    // double kinf = k_cross-delta_k;
+    double ksup = k_cross+2.0*delta_k;
+    double kinf = k_cross;
+    amrex::Print() << "kinf = " << kinf << std::endl;
+    amrex::Print() << "ksup = " << ksup << std::endl;
 
     auto CurrentFourierAmplitude = [=](double k) -> double {
-        if (k < ksup && k > kinf) {
-            double window = k/k_cross/current_dt;
-            return av_H * std::pow(k, -1.5) / std::sqrt(2.0)/Mpl;
-        } else {
-            return 0.0;
-        }
+        // if (k < ksup && k > kinf) {
+        //     // double window_factor = std::sqrt(av_H*k_cross)/current_dt;
+        //     double window_factor = 1/current_dt;
+        //     // return av_H/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*window_factor;
+        //     return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*window_factor;
+        // } else {
+        //     return 0.0;
+        // }
+
+        // return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*dWindow(ksup-k,kinf-k,"heaviside")/current_dt;
+        // return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*dWindow(k/ksup,k/kinf,"gaussian")/sqrt(current_dt);
+
+        // return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*dWindow(k/ksup,k/kinf,"gaussian")* std::pow(current_dt, -1.5);
+        // return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*DWindowDt(k/kinf,av_H*(1.0-av_eps1),"gaussian")* std::pow(current_dt, -0.5);
+        // return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*dWindow(ksup-k,kinf-k,"heaviside")* std::pow(current_dt, -1.5);
+
+        return 3.0*std::pow(av_H, 2.0)/Mpl * std::pow(k, -1.5) / std::sqrt(4.0*av_eps1)*DWindowDt(k/kinf,av_H*(1.0-av_eps1),"gaussian");
     };
 
-    // spectral_modifier.apply_func(myFourierAmplitude, stochastic_rhs_R);
     spectral_modifier.apply_func(CurrentFourierAmplitude, stochastic_rhs_R);
 
-    // Wiener process scaling of the noise, before discrete x dt. See Specs.
-    stochastic_rhs_R.mult(pow(current_dt,-0.5), 0, 1, 0);
+    // Wiener process scaling of the noise, before discrete *dt. See Specs.
+    // stochastic_rhs_R.mult(pow(current_dt,-0.5), 0, 1, 0);
+    // stochastic_rhs_R.mult(pow(current_dt,-1), 0, 1, 0);
 
     // Make stoch. rhs of Pi
     stochastic_rhs_R.mult(-1.0*pow(2.0*av_eps1,0.5)*Mpl, 0, 1, 0);
@@ -534,7 +585,15 @@ void ScalarFieldLevel::specificEvalStochasticRHS(amrex::MultiFab &a_soln,amrex::
 
     // Make stoch. rhs of K from the previous one
     stochastic_rhs_R.mult(-1.0*pow(av_eps1/2.0,0.5)/Mpl, 0, 1, 0);
+
     amrex::MultiFab::Add(a_rhs, stochastic_rhs_R, 0, comp_K, 1, 0);
     // amrex::Print() << "Stochastic source  added" << std::endl;
+
+    // const int nghost = a_rhs.nGrow(); // Need ghost cells to compute gradient
+    // const auto curr_time = get_state_data(State_Type).curTime();
+
+    // FillPatch(*this, a_rhs, nghost, curr_time, State_Type, comp_Pi, 1);
+    // FillPatch(*this, a_rhs, nghost, curr_time, State_Type, comp_K, 1);
+    // a_rhs.FillBoundary(geom.periodicity());
 
 }

@@ -39,7 +39,8 @@ inline SpectralModifier::SpectralModifier (MultiFab& input, Geometry& geom, int 
   
     a.resize(n_box_dim[0]*n_box_dim[1]*n_box_dim[2]);
     b.resize(n_box_dim[0]*n_box_dim[1]*n_box_dim[2]); 
-    // amrex::Print() << "dx?"<< h << std::endl;
+    amrex::Print() << "kmax = "<< 2*PI/h << std::endl;
+    amrex::Print() << "kmin = "<< 2*PI/(h*double(n_box_dim[0]*numb_boxes_dim[0])) << std::endl;
 
     }
 
@@ -178,6 +179,7 @@ inline void SpectralModifier::apply_func(std::function<double(double)> amp_func,
     // Assume for now that nx = ny = nz
     int Ndims[3] = {numb_boxes_dim[2], numb_boxes_dim[1], numb_boxes_dim[0]};
     int     n[3] = {domain.length(2), domain.length(1), domain.length(0)}; // C-order
+    double dk = 2*PI/(h*double(n_box_dim[0]*numb_boxes_dim[0]));
 
    // Hardware/Hybrid Cosmology Code (HACC) provides a functionality for performing Discrete Fast Fourier Transforms in AMReX (tailored for cosmological simulations.)
     hacc::Distribution d(MPI_COMM_WORLD,n,Ndims,&rank_mapping[0]);
@@ -237,12 +239,13 @@ inline void SpectralModifier::apply_func(std::function<double(double)> amp_func,
            a[local_indx] = 0.0;
         } else {
          // This is k but remember that gradients in discrete space are not that easy. It's the effective k (see Caravano21), not a problem if there is a cutoff to keep global_i,j,k<<global_ng
-           double fac = sqrt(-2. * (
+           double knorm = sqrt(-2. * (
                         (cos(2*PI*double(global_i)/double(global_ng[0])) - 1.) +
                         (cos(2*PI*double(global_j)/double(global_ng[1])) - 1.) +
-                        (cos(2*PI*double(global_k)/double(global_ng[2])) - 1.) ));
-         // dimensionful effective k is fac/dx
-           a[local_indx] = a[local_indx] * std::abs(amp_func(fac/h)); // only keep the square root of the power spectrum.
+                        (cos(2*PI*double(global_k)/double(global_ng[2])) - 1.) ))/h;
+          // double knorm = dk*sqrt(pow(double(global_i),2)+pow(double(global_j),2)+pow(double(global_k),2));
+          //  a[local_indx] = a[local_indx] * std::abs(amp_func(knorm)); // only keep the square root of the power spectrum.
+           a[local_indx] = a[local_indx] * amp_func(knorm);
         }
         local_indx++;
 
@@ -261,7 +264,6 @@ inline void SpectralModifier::apply_func(std::function<double(double)> amp_func,
     for(size_t k=0; k<(size_t)n_box_dim[2]; k++) {
     for(size_t j=0; j<(size_t)n_box_dim[1]; j++) {
       for(size_t i=0; i<(size_t)n_box_dim[0]; i++) {
-
         output[mfi].dataPtr()[local_indx] = fac * std::real(a[local_indx]);
         // if (output[mfi].dataPtr()[local_indx]!=0.0) amrex::Print() << "filled output:" << a[local_indx] << std::endl;
         local_indx++;
@@ -269,6 +271,7 @@ inline void SpectralModifier::apply_func(std::function<double(double)> amp_func,
       }
     }
     }
+    // amrex::Print() << "imag(a[last]) = "<< std::imag(a[local_indx]) << std::endl;
    // END of parallel
     }
 }
@@ -276,8 +279,9 @@ inline void SpectralModifier::apply_func(std::function<double(double)> amp_func,
 // Function to fill MultiFab with random noise
 inline void SpectralModifier::FillInputWithRandomNoise(std::mt19937& gen) // could use a parallel for there no? no
 {
-    double stddev = pow(double(n_box_dim[0]*n_box_dim[1]*n_box_dim[2]),-0.5); // Normalisation to get a rayleigh draw once in Fourier space.
-    std::normal_distribution<Real>  dis(0.0, stddev); 
+    double stddev = sqrt(double(n_box_dim[0]*numb_boxes_dim[0]*n_box_dim[1]*numb_boxes_dim[1]*n_box_dim[2]*numb_boxes_dim[2])); // Normalisation to get a rayleigh draw once in Fourier space.
+    // amrex::Print() << "norm_rand = " << stddev << std::endl;
+    std::normal_distribution<Real>  dis(0.0, 1.0); 
     for (MFIter mfi((*input)); mfi.isValid(); ++mfi)
     {
         const Box& box = mfi.validbox();
@@ -286,7 +290,7 @@ inline void SpectralModifier::FillInputWithRandomNoise(std::mt19937& gen) // cou
         for (int k = box.smallEnd(2); k <= box.bigEnd(2); ++k) {
             for (int j = box.smallEnd(1); j <= box.bigEnd(1); ++j) {
                 for (int i = box.smallEnd(0); i <= box.bigEnd(0); ++i) {
-                    arr(i,j,k) = dis(gen);
+                    arr(i,j,k) = dis(gen)/stddev;
                 }
             }
         }

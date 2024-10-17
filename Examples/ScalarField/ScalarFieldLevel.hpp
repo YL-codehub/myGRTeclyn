@@ -75,8 +75,9 @@ class ScalarFieldLevel : public GRAMRLevel
     // Stochastic grids (Stored on main node)
     amrex::MultiFab gaussian_grid;
     amrex::MultiFab stochastic_rhs_R; // see eq. (47-48) of 10.1103/PhysRevD.109.123523 
-    amrex::MultiFab stochastic_rhs_Pi;
-    amrex::MultiFab stochastic_rhs_K;
+    // amrex::MultiFab stochastic_rhs_Pi;
+    // amrex::MultiFab stochastic_rhs_K;
+    amrex::MultiFab buffer;
     void initializeStochasticMultiFabs(const MultiFab& existing_mf);
     // spectral method class
     SpectralModifier spectral_modifier;
